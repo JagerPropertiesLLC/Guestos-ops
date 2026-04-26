@@ -146,10 +146,9 @@ export default function SchedulePage() {
   const [lastUpdated, setLastUpdated] = useState(null)
   const [filter, setFilter] = useState('all')
 
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const dateKey = tomorrow.toISOString().split('T')[0]
-  const dateStr = tomorrow.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const today = new Date()
+  const dateKey = today.toISOString().split('T')[0]
+  const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   const loadSchedule = useCallback(async () => {
     const { data: sched } = await supabase
