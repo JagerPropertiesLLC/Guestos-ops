@@ -147,7 +147,8 @@ export default function SchedulePage() {
   const [filter, setFilter] = useState('all')
 
   const today = new Date()
-  const dateKey = today.toISOString().split('T')[0]
+  // Build dateKey from LOCAL date components, not UTC, to match the user's timezone
+  const dateKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
   const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   const loadSchedule = useCallback(async () => {
