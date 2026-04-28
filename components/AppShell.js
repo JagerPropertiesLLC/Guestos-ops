@@ -30,6 +30,7 @@ const RAIL_ITEMS = [
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  if (pathname?.startsWith('/swppp/public/')) return children;
   const [activeRail, setActiveRail] = useState(null);
   const [sidebarData, setSidebarData] = useState({ properties: [], projects: [] });
 
