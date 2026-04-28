@@ -5,6 +5,8 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 export async function POST(request) {
   const supa = getSupabaseAdmin();
   const body = await request.json();
+  if (body.start_time === '') body.start_time = null;
+    if (body.end_time === '') body.end_time = null;
   const {
     swppp_project_id, inspection_type, inspection_date, start_time, end_time,
     inspector_name, inspector_title, inspector_contact, inspector_qualifications,
