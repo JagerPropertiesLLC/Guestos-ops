@@ -3,11 +3,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Bed, Building2, HardHat,
   Calendar, Inbox, CheckSquare, Users, Wrench, Shield, Receipt, BarChart3, Settings,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, CalendarClock
 } from 'lucide-react';
 
 const RAIL_ITEMS = [
@@ -21,6 +21,7 @@ const RAIL_ITEMS = [
   { id: 'tasks',         label: 'Tasks',        Icon: CheckSquare, href: '/tasks' },
   { id: 'crm',           label: 'CRM',          Icon: Users,    href: '/contacts' },
   { id: 'maintenance',   label: 'Maintenance',  Icon: Wrench,   href: '/maintenance' },
+  { id: 'scheduler',     label: 'Scheduler',    Icon: CalendarClock, href: '/scheduler' },
   { id: 'insurance',     label: 'Insurance',    Icon: Shield,   href: '/insurance' },
   { id: 'property-tax',  label: 'Property Tax', Icon: Receipt,  href: '/property-tax' },
   { id: 'reports',       label: 'Reports',      Icon: BarChart3,href: '/reports' },
@@ -64,8 +65,7 @@ export default function AppShell({ children }) {
                 width: 40, height: 40, borderRadius: 8, display: 'flex', alignItems: 'center',
                 justifyContent: 'center', cursor: 'pointer', marginBottom: 4,
                 background: active ? '#1e293b' : 'transparent',
-                color: active ? '#fff' : '#94a3b8',
-                transition: 'all 0.15s'
+                color: active ? '#fff' : '#94a3b8', transition: 'all 0.15s'
               }}>
               <item.Icon size={20} strokeWidth={1.75} />
             </div>
@@ -112,28 +112,40 @@ function NavItem({ href, label, count, active }) {
 function Pill({ children }) {
   return <span style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '2px 7px', borderRadius: 10, fontWeight: 500 }}>{children}</span>;
 }
+
+// CHANGED: clicking the word ALSO toggles the dropdown (in addition to navigating).
+// We do this with a single onClick that toggles open AND uses router.push.
 function CollapsibleGroup({ href, label, count, active, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const router = useRouter();
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    setOpen(o => !o);
+    router.push(href);
+  };
+
   return (
     <div style={{ marginBottom: 2 }}>
       <div style={{
         display: 'flex', alignItems: 'center', padding: '8px 8px 8px 4px',
-        borderRadius: 6, background: active ? '#f1f5f9' : 'transparent', marginBottom: 1
-      }}>
-        <button onClick={() => setOpen(!open)} style={{
+        borderRadius: 6, background: active ? '#f1f5f9' : 'transparent', marginBottom: 1,
+        cursor: 'pointer'
+      }} onClick={handleClick}>
+        <button onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} style={{
           background: 'transparent', border: 0, cursor: 'pointer', padding: 4, marginRight: 2,
           display: 'flex', alignItems: 'center', color: '#64748b'
         }}>
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
-        <Link href={href} style={{
-          flex: 1, textDecoration: 'none', color: active ? '#0f172a' : '#475569',
+        <div style={{
+          flex: 1, color: active ? '#0f172a' : '#475569',
           fontSize: 14, fontWeight: active ? 500 : 400,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between'
         }}>
           <span>{label}</span>
           {count != null && <Pill>{count}</Pill>}
-        </Link>
+        </div>
       </div>
       {open && <div style={{ paddingLeft: 22 }}>{children}</div>}
     </div>
@@ -146,9 +158,7 @@ function SubNavItem({ href, label, active }) {
       color: active ? '#0f172a' : '#64748b', textDecoration: 'none',
       background: active ? '#f1f5f9' : 'transparent', marginBottom: 1,
       fontWeight: active ? 500 : 400
-    }}>
-      {label}
-    </Link>
+    }}>{label}</Link>
   );
 }
 
@@ -164,8 +174,9 @@ function ShortTermPanel({ data, pathname }) {
         ))}
       </CollapsibleGroup>
       <NavItem href="/short-term/reservations" label="Reservations" active={pathname === '/short-term/reservations'} />
-      <NavItem href="/short-term/calendar" label="Reservations Calendar" active={pathname === '/short-term/calendar'} />
-      <NavItem href="/short-term/inbox" label="Guest Inbox" active={pathname === '/short-term/inbox'} />
+      <NavItem href="/short-term/calendar" label="Bookings Calendar" active={pathname === '/short-term/calendar'} />
+      <NavItem href="/short-term/inbox/messages" label="Guest Messages" active={pathname === '/short-term/inbox/messages'} />
+      <NavItem href="/short-term/inbox/approvals" label="Approval Queue" active={pathname === '/short-term/inbox/approvals'} />
       <NavItem href="/short-term/listings" label="Listings" active={pathname === '/short-term/listings'} />
       <NavItem href="/short-term/cleaning" label="Cleaning" active={pathname === '/short-term/cleaning'} />
       <NavItem href="/short-term/maintenance" label="Maintenance" active={pathname === '/short-term/maintenance'} />
@@ -189,8 +200,7 @@ function LongTermPanel({ data, pathname }) {
           <SubNavItem key={p.id} href={`/long-term/properties/${p.id}`} label={p.short_name} active={pathname?.includes(p.id)} />
         ))}
       </CollapsibleGroup>
-      <NavItem href="/long-term/tenants" label="Tenants" active={pathname === '/long-term/tenants'} />
-      <NavItem href="/long-term/leases" label="Leases" active={pathname === '/long-term/leases'} />
+      <NavItem href="/long-term/leases" label="Tenants & Leases" active={pathname?.startsWith('/long-term/leases') || pathname?.startsWith('/long-term/tenants')} />
       <NavItem href="/long-term/rent-roll" label="Rent Roll" active={pathname === '/long-term/rent-roll'} />
       <NavItem href="/long-term/aged-receivables" label="Aged Receivables" active={pathname === '/long-term/aged-receivables'} />
       <NavItem href="/long-term/maintenance" label="Maintenance" active={pathname === '/long-term/maintenance'} />
@@ -203,7 +213,6 @@ function LongTermPanel({ data, pathname }) {
   );
 }
 
-// SLIMMED DOWN — just the essentials. Project-specific stuff lives inside the project page.
 function ConstructionPanel({ data, pathname }) {
   const projects = data.projects || [];
   const projActive = pathname?.startsWith('/construction/') &&
@@ -212,8 +221,7 @@ function ConstructionPanel({ data, pathname }) {
   return (
     <div>
       <PanelHeader title="Construction" />
-      <CollapsibleGroup href="/construction" label="Projects" count={projects.length}
-        active={allProjActive || projActive} defaultOpen={projActive || allProjActive}>
+      <CollapsibleGroup href="/construction" label="Projects" count={projects.length} active={allProjActive || projActive} defaultOpen={projActive || allProjActive}>
         {projects.map(p => (
           <SubNavItem key={p.id} href={`/construction/${p.id}`} label={p.name} active={pathname?.includes(p.id)} />
         ))}
