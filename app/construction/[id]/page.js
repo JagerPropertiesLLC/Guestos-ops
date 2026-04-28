@@ -3,11 +3,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
+import SwpppTab from '@/components/SwpppTab';
 
 export default function ProjectDetail() {
   const { id } = useParams();
-  const [tab, setTab] = useState('overview');
+  const search = useSearchParams();
+  const initialTab = search.get('tab') || 'overview';
+  const [tab, setTab] = useState(initialTab);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,26 +41,26 @@ export default function ProjectDetail() {
       </div>
 
       <div style={{ borderBottom: '1px solid #e2e8f0', marginBottom: 24, display: 'flex', gap: 4, overflowX: 'auto' }}>
-        <Tab active={tab === 'overview'} onClick={() => setTab('overview')}>Overview</Tab>
-        <Tab active={tab === 'subcontractors'} onClick={() => setTab('subcontractors')}>Subcontractors ({counts?.subcontracts || 0})</Tab>
-        <Tab active={tab === 'inspections'} onClick={() => setTab('inspections')}>Inspections ({counts?.open_inspections || 0} / {counts?.inspections || 0})</Tab>
-        <Tab active={tab === 'permits'} onClick={() => setTab('permits')}>Permits</Tab>
-        <Tab active={tab === 'swppp'} onClick={() => setTab('swppp')}>SWPPP ({counts?.swppp_logs || 0})</Tab>
-        <Tab active={tab === 'change-orders'} onClick={() => setTab('change-orders')}>Change Orders ({counts?.change_orders || 0})</Tab>
-        <Tab active={tab === 'draws'} onClick={() => setTab('draws')}>Draws & Lien Waivers</Tab>
-        <Tab active={tab === 'documents'} onClick={() => setTab('documents')}>Documents</Tab>
-        <Tab active={tab === 'photos'} onClick={() => setTab('photos')}>Photos</Tab>
+        <Tab active={tab === 'overview'}        onClick={() => setTab('overview')}>Overview</Tab>
+        <Tab active={tab === 'subcontractors'}  onClick={() => setTab('subcontractors')}>Subcontractors ({counts?.subcontracts || 0})</Tab>
+        <Tab active={tab === 'inspections'}     onClick={() => setTab('inspections')}>Inspections ({counts?.open_inspections || 0} / {counts?.inspections || 0})</Tab>
+        <Tab active={tab === 'permits'}         onClick={() => setTab('permits')}>Permits</Tab>
+        <Tab active={tab === 'swppp'}           onClick={() => setTab('swppp')}>SWPPP</Tab>
+        <Tab active={tab === 'change-orders'}   onClick={() => setTab('change-orders')}>Change Orders ({counts?.change_orders || 0})</Tab>
+        <Tab active={tab === 'draws'}           onClick={() => setTab('draws')}>Draws & Lien Waivers</Tab>
+        <Tab active={tab === 'documents'}       onClick={() => setTab('documents')}>Documents</Tab>
+        <Tab active={tab === 'photos'}          onClick={() => setTab('photos')}>Photos</Tab>
       </div>
 
-      {tab === 'overview' && <OverviewTab project={project} />}
-      {tab === 'subcontractors' && <SubcontractorsTab projectId={id} />}
-      {tab === 'inspections' && <InspectionsTab projectId={id} />}
-      {tab === 'permits' && <PermitsTab projectId={id} />}
-      {tab === 'swppp' && <SWPPPTab projectId={id} />}
-      {tab === 'change-orders' && <ChangeOrdersTab projectId={id} />}
-      {tab === 'draws' && <DrawsTab projectId={id} />}
-      {tab === 'documents' && <DocumentsTab projectId={id} />}
-      {tab === 'photos' && <PhotosTab projectId={id} />}
+      {tab === 'overview'         && <OverviewTab project={project} />}
+      {tab === 'subcontractors'   && <SubcontractorsTab projectId={id} />}
+      {tab === 'inspections'      && <InspectionsTab projectId={id} />}
+      {tab === 'permits'          && <PermitsTab projectId={id} />}
+      {tab === 'swppp'            && <SwpppTab projectId={id} />}
+      {tab === 'change-orders'    && <ChangeOrdersTab projectId={id} />}
+      {tab === 'draws'            && <DrawsTab projectId={id} />}
+      {tab === 'documents'        && <DocumentsTab projectId={id} />}
+      {tab === 'photos'           && <PhotosTab projectId={id} />}
     </div>
   );
 }
@@ -73,7 +76,6 @@ function Tab({ children, active, onClick }) {
   );
 }
 
-// ---------- OVERVIEW ----------
 function OverviewTab({ project }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -99,167 +101,58 @@ function Card({ title, children, colSpan = 1 }) {
   );
 }
 
-// ---------- SUBCONTRACTORS (was "Subcontracts" — same data, renamed) ----------
 function SubcontractorsTab({ projectId }) {
   const [subs, setSubs] = useState([]);
-  const [redacted, setRedacted] = useState(false);
-
-  async function load() {
-    const r = await fetch(`/api/subcontracts?project_id=${projectId}`);
-    const j = await r.json();
-    setSubs(j.subcontracts || []);
-    setRedacted(!!j.redacted);
-  }
-  useEffect(() => { load(); }, [projectId]);
-
+  useEffect(() => {
+    fetch(`/api/subcontracts?project_id=${projectId}`).then(r => r.json()).then(j => setSubs(j.subcontracts || []));
+  }, [projectId]);
+  if (subs.length === 0) return <Empty text="No subcontractors yet for this project." />;
   return (
-    <div>
-      <SectionHeader title="Subcontractors" />
-      {redacted && <Notice>Dollar values are hidden for your role.</Notice>}
-      {subs.length === 0 ? <Empty text="No subcontractors yet for this project." />
-        : <Table headers={['Scope', 'Company', 'Contract value', 'Paid', 'Retained', 'Status']}>
-            {subs.map(s => (
-              <tr key={s.id}>
-                <td style={td}>{s.scope}</td>
-                <td style={td}>{s.company?.name || '—'}</td>
-                <td style={td}>{s.contract_value != null ? `$${Number(s.contract_value).toLocaleString()}` : '—'}</td>
-                <td style={td}>{s.amount_paid != null ? `$${Number(s.amount_paid).toLocaleString()}` : '—'}</td>
-                <td style={td}>{s.amount_retained != null ? `$${Number(s.amount_retained).toLocaleString()}` : '—'}</td>
-                <td style={td}>{s.status}</td>
-              </tr>
-            ))}
-          </Table>
-      }
-    </div>
+    <Table headers={['Scope', 'Company', 'Contract value', 'Paid', 'Retained', 'Status']}>
+      {subs.map(s => (
+        <tr key={s.id}>
+          <td style={td}>{s.scope}</td>
+          <td style={td}>{s.company?.name || '—'}</td>
+          <td style={td}>{s.contract_value != null ? `$${Number(s.contract_value).toLocaleString()}` : '—'}</td>
+          <td style={td}>{s.amount_paid != null ? `$${Number(s.amount_paid).toLocaleString()}` : '—'}</td>
+          <td style={td}>{s.amount_retained != null ? `$${Number(s.amount_retained).toLocaleString()}` : '—'}</td>
+          <td style={td}>{s.status}</td>
+        </tr>
+      ))}
+    </Table>
   );
 }
-
-// ---------- INSPECTIONS ----------
 function InspectionsTab({ projectId }) {
   const [items, setItems] = useState([]);
-  async function load() {
-    const r = await fetch(`/api/inspections?project_id=${projectId}`);
-    const j = await r.json();
-    setItems(j.inspections || []);
-  }
-  useEffect(() => { load(); }, [projectId]);
+  useEffect(() => {
+    fetch(`/api/inspections?project_id=${projectId}`).then(r => r.json()).then(j => setItems(j.inspections || []));
+  }, [projectId]);
+  if (items.length === 0) return <Empty text="No general inspections scheduled." />;
   return (
-    <div>
-      <SectionHeader title="Inspections" />
-      {items.length === 0 ? <Empty text="No inspections scheduled for this project." />
-        : <Table headers={['Type', 'Authority', 'Scheduled', 'Completed', 'Result']}>
-            {items.map(i => (
-              <tr key={i.id}>
-                <td style={td}>{i.inspection_type}</td>
-                <td style={td}>{i.authority || '—'}</td>
-                <td style={td}>{i.scheduled_date || '—'}</td>
-                <td style={td}>{i.completed_date || '—'}</td>
-                <td style={td}>{i.result || '—'}</td>
-              </tr>
-            ))}
-          </Table>}
-    </div>
+    <Table headers={['Type', 'Authority', 'Scheduled', 'Completed', 'Result']}>
+      {items.map(i => (
+        <tr key={i.id}>
+          <td style={td}>{i.inspection_type}</td>
+          <td style={td}>{i.authority || '—'}</td>
+          <td style={td}>{i.scheduled_date || '—'}</td>
+          <td style={td}>{i.completed_date || '—'}</td>
+          <td style={td}>{i.result || '—'}</td>
+        </tr>
+      ))}
+    </Table>
   );
 }
+function PermitsTab({ projectId })       { return <Empty text="Permits API + UI coming next." />; }
+function ChangeOrdersTab({ projectId })  { return <Empty text="Change orders API + UI coming next." />; }
+function DrawsTab({ projectId })         { return <Empty text="Draws & lien waivers API + UI coming next." />; }
+function DocumentsTab({ projectId })     { return <Empty text="Document upload UI coming next." />; }
+function PhotosTab({ projectId })        { return <Empty text="Photo gallery coming next." />; }
 
-// ---------- PERMITS ----------
-function PermitsTab({ projectId }) {
-  return (
-    <div>
-      <SectionHeader title="Permits" />
-      <Notice>Building, electrical, plumbing, mechanical, and other permits for this project. Reminders fire before expiration.</Notice>
-      <Empty text="Permits API endpoint not built yet — schema is in place. Add directly in Supabase to test." />
-    </div>
-  );
-}
-
-// ---------- SWPPP (project-specific now) ----------
-function SWPPPTab({ projectId }) {
-  const [logs, setLogs] = useState([]);
-  async function load() {
-    const r = await fetch(`/api/swppp?project_id=${projectId}`);
-    const j = await r.json();
-    setLogs(j.logs || []);
-  }
-  useEffect(() => { load(); }, [projectId]);
-  return (
-    <div>
-      <SectionHeader title="SWPPP Logs" />
-      <Notice>Storm Water Pollution Prevention Plan inspections, rain events, and BMP work for this project.</Notice>
-      {logs.length === 0 ? <Empty text="No SWPPP entries yet." />
-        : <Table headers={['Date', 'Type', 'Rain (in)', 'BMP status', 'Inspector', 'Findings']}>
-            {logs.map(l => (
-              <tr key={l.id}>
-                <td style={td}>{l.log_date}</td>
-                <td style={td}>{l.log_type}</td>
-                <td style={td}>{l.rain_amount_inches ?? '—'}</td>
-                <td style={td}>{l.bmp_status || '—'}</td>
-                <td style={td}>{l.inspector_name || '—'}</td>
-                <td style={td}>{l.findings || '—'}</td>
-              </tr>
-            ))}
-          </Table>}
-    </div>
-  );
-}
-
-// ---------- CHANGE ORDERS ----------
-function ChangeOrdersTab({ projectId }) {
-  return (
-    <div>
-      <SectionHeader title="Change Orders" />
-      <Notice>Scope or budget changes after the original contract. Each CO impacts both project budget and schedule.</Notice>
-      <Empty text="Change orders API endpoint not built yet — schema is in place." />
-    </div>
-  );
-}
-
-// ---------- DRAWS & LIEN WAIVERS ----------
-function DrawsTab({ projectId }) {
-  return (
-    <div>
-      <SectionHeader title="Draws & Lien Waivers" />
-      <Notice>Sub pay applications, owner draws, retainage held, lien waiver tracking.</Notice>
-      <Empty text="Draws API endpoint not built yet — schema is in place. Lien waiver requirement enforcement comes with the agent." />
-    </div>
-  );
-}
-
-// ---------- DOCUMENTS ----------
-function DocumentsTab({ projectId }) {
-  return (
-    <div>
-      <SectionHeader title="Documents" />
-      <Notice>Plans, contracts, permits, COIs, photos for this project.</Notice>
-      <Empty text="Document upload UI is part of the next push." />
-    </div>
-  );
-}
-
-// ---------- PHOTOS ----------
-function PhotosTab({ projectId }) {
-  return (
-    <div>
-      <SectionHeader title="Photos" />
-      <Empty text="Project photo gallery coming next push." />
-    </div>
-  );
-}
-
-// ---------- shared ----------
 const pageWrap = { maxWidth: 1100, margin: '0 auto', padding: '24px 28px' };
 const td = { padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 14 };
 
-function SectionHeader({ title }) {
-  return <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-    <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
-  </div>;
-}
 function Empty({ text }) {
   return <div style={{ padding: 30, textAlign: 'center', background: '#f8fafc', borderRadius: 8, color: '#64748b', fontSize: 14 }}>{text}</div>;
-}
-function Notice({ children }) {
-  return <div style={{ padding: '10px 14px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6, fontSize: 13, marginBottom: 14, color: '#713f12' }}>{children}</div>;
 }
 function Table({ headers, children }) {
   return (
