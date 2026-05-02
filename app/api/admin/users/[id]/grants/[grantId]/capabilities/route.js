@@ -9,6 +9,7 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { assertSuperAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 export async function PATCH(req, { params }) {
   const callerId = await assertSuperAdmin(req);

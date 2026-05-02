@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { assertSuperAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 export async function GET(req) {
   const callerId = await assertSuperAdmin(req);

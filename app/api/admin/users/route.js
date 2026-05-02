@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { assertSuperAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 const TYPE_ORDER = { super_admin: 0, owner: 1, manager: 2, staff: 3 };
 

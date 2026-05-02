@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { assertSuperAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 const ALLOWED_MODULES = ['str', 'ltr', 'construction', 'marina'];
 const ALLOWED_ROLES   = ['owner', 'manager', 'ops', 'viewer'];
