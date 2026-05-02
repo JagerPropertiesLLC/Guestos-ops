@@ -20,7 +20,8 @@ export async function GET(req) {
   let q = supa
     .from('capabilities')
     .select('id, slug, label, category, applies_to_modules, description, default_owner, default_manager, default_ops, default_viewer, sort_order')
-    .order('sort_order');
+    .order('category', { ascending: true })
+    .order('slug', { ascending: true });
   if (moduleFilter) q = q.contains('applies_to_modules', [moduleFilter]);
 
   const { data, error } = await q;
