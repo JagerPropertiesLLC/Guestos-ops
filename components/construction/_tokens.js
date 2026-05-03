@@ -37,7 +37,25 @@ export const STATUS_COLORS = {
   passed:           { bg: '#d1fae5', fg: '#065f46' }, // green
   failed:           { bg: '#fee2e2', fg: '#991b1b' }, // red
   conditional_pass: { bg: '#fef3c7', fg: '#854d0e' }, // gold
+  // Expense paid_status (unpaid/approved/paid already reusable above)
+  unpaid:           { bg: '#f3f4f6', fg: '#4b5563' }, // gray
+  submitted:        { bg: '#dbeafe', fg: '#1e3a8a' }, // blue
 };
+
+export const PHASE_STATUS_OPTIONS = [
+  { value: 'not_started', label: 'Not started' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'complete',    label: 'Complete' },
+  { value: 'on_hold',     label: 'On hold' },
+  { value: 'delayed',     label: 'Delayed' },
+];
+
+export const EXPENSE_PAID_STATUS_OPTIONS = [
+  { value: 'unpaid',    label: 'Unpaid' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'approved',  label: 'Approved' },
+  { value: 'paid',      label: 'Paid' },
+];
 
 export const PROJECT_TYPE_OPTIONS = [
   { value: 'new_construction',   label: 'New construction' },

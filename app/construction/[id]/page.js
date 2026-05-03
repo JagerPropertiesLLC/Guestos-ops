@@ -7,12 +7,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, Layers, FileSignature, ListTodo, Banknote,
+  ChevronLeft, FileSignature, ListTodo, Banknote,
   ClipboardEdit, ShieldCheck, FolderOpen,
 } from 'lucide-react';
 import { tokens } from '@/components/construction/_tokens';
 import ProjectHeader from '@/components/construction/ProjectHeader';
 import ProjectStubSection from '@/components/construction/ProjectStubSection';
+import BudgetSection from '@/components/construction/BudgetSection';
+import PhasesSection from '@/components/construction/PhasesSection';
+import ExpensesSection from '@/components/construction/ExpensesSection';
 
 export default function ConstructionProjectPage() {
   const router = useRouter();
@@ -87,12 +90,10 @@ export default function ConstructionProjectPage() {
         onChanged={refresh}
       />
 
-      <ProjectStubSection
-        title="Phases"
-        phase="phase 2"
-        icon={Layers}
-        description="Break the project into phases (e.g. site work, foundation, framing). Per-phase budget + dates + status."
-      />
+      <BudgetSection projectId={id} />
+      <PhasesSection projectId={id} />
+      <ExpensesSection projectId={id} />
+
       <ProjectStubSection
         title="Subcontractors"
         phase="phase 3"
