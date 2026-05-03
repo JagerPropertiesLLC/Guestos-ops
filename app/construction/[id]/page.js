@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, FileSignature, ListTodo, Banknote,
+  ChevronLeft, ListTodo, Banknote,
   ClipboardEdit, ShieldCheck, FolderOpen,
 } from 'lucide-react';
 import { tokens } from '@/components/construction/_tokens';
@@ -16,6 +16,7 @@ import ProjectStubSection from '@/components/construction/ProjectStubSection';
 import BudgetSection from '@/components/construction/BudgetSection';
 import PhasesSection from '@/components/construction/PhasesSection';
 import ExpensesSection from '@/components/construction/ExpensesSection';
+import SubcontractsSection from '@/components/construction/SubcontractsSection';
 
 export default function ConstructionProjectPage() {
   const router = useRouter();
@@ -93,13 +94,8 @@ export default function ConstructionProjectPage() {
       <BudgetSection projectId={id} />
       <PhasesSection projectId={id} />
       <ExpensesSection projectId={id} />
+      <SubcontractsSection projectId={id} />
 
-      <ProjectStubSection
-        title="Subcontractors"
-        phase="phase 3"
-        icon={FileSignature}
-        description="Subcontracts with AIA G702/G703 schedule of values. Track contract value, paid to date, retainage held, % complete per line item."
-      />
       <ProjectStubSection
         title="Tasks"
         phase="phase 5"

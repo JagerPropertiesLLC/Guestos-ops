@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { tokens } from './_tokens';
 
-export default function VendorPicker({ value, onChange, placeholder = 'Vendor (start typing…)' }) {
+export default function VendorPicker({ value, onChange, placeholder = 'Vendor (start typing…)', companyType = 'vendor' }) {
   // value: { id, name } or null
   const [query, setQuery] = useState(value?.name || '');
   const [matches, setMatches] = useState([]);
@@ -59,7 +59,7 @@ export default function VendorPicker({ value, onChange, placeholder = 'Vendor (s
       const r = await fetch('/api/construction/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type: 'vendor' }),
+        body: JSON.stringify({ name, type: companyType }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
