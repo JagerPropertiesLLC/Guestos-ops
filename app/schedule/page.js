@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
 const STATUS_CONFIG = {
@@ -11,10 +12,31 @@ const STATUS_CONFIG = {
 }
 
 function UnitCard({ unit, onStatusChange, onNoteAdd }) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [startingInspection, setStartingInspection] = useState(false)
   const cfg = STATUS_CONFIG[unit.status] || STATUS_CONFIG.pending
+
+  async function handleStartInspection() {
+    setStartingInspection(true)
+    try {
+      const r = await fetch('/api/inspections/units', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ schedule_unit_id: unit.id })
+      })
+      const j = await r.json()
+      if (!r.ok) {
+        alert(j.error || 'Could not start inspection')
+        return
+      }
+      router.push(`/inspections/${j.inspection.id}`)
+    } finally {
+      setStartingInspection(false)
+    }
+  }
 
   async function handleStatus(newStatus) {
     setSaving(true)
@@ -104,6 +126,14 @@ function UnitCard({ unit, onStatusChange, onNoteAdd }) {
               ))}
             </div>
           </div>
+
+          <button
+            onClick={handleStartInspection}
+            disabled={startingInspection}
+            className="w-full py-2.5 px-3 rounded-xl text-sm font-semibold bg-blue-600 text-white disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {startingInspection ? 'Starting…' : '🔍 Start Post-Checkout Inspection'}
+          </button>
 
           {unit.notes && unit.notes.length > 0 && (
             <div className="space-y-1.5">

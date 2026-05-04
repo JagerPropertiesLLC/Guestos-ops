@@ -10,6 +10,7 @@ import { ChevronLeft, AlertTriangle } from 'lucide-react';
 import RequiredDocsTab from './RequiredDocsTab';
 import AllFilesTab from './AllFilesTab';
 import SiteVisitsTab from './SiteVisitsTab';
+import InspectionsTab from './InspectionsTab';
 
 export default function PropertyDetail({ propertyId, module: mod }) {
   const [property, setProperty] = useState(null);
@@ -71,11 +72,13 @@ export default function PropertyDetail({ propertyId, module: mod }) {
         </Tab>
         <Tab active={tab === 'all'} onClick={() => setTab('all')}>All Files</Tab>
         <Tab active={tab === 'photos'} onClick={() => setTab('photos')}>Daily Photos / Site Visits</Tab>
+        <Tab active={tab === 'inspections'} onClick={() => setTab('inspections')}>Inspections</Tab>
       </div>
 
-      {tab === 'required' && <RequiredDocsTab propertyId={propertyId} reqDocs={reqDocs} onChange={reload} />}
-      {tab === 'all'      && <AllFilesTab parentType="property" parentId={propertyId} property={property} />}
-      {tab === 'photos'   && <SiteVisitsTab propertyId={propertyId} property={property} />}
+      {tab === 'required'    && <RequiredDocsTab propertyId={propertyId} reqDocs={reqDocs} onChange={reload} />}
+      {tab === 'all'         && <AllFilesTab parentType="property" parentId={propertyId} property={property} />}
+      {tab === 'photos'      && <SiteVisitsTab propertyId={propertyId} property={property} />}
+      {tab === 'inspections' && <InspectionsTab propertyId={propertyId} />}
     </div>
   );
 }

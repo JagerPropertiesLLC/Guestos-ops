@@ -20,7 +20,8 @@ export const fetchCache = 'force-no-store';
 
 const VALID_PARENT_TYPES = [
   'property', 'unit', 'project', 'subcontract', 'project_draw',
-  'change_order', 'inspection', 'task', 'contact', 'company'
+  'change_order', 'inspection', 'task', 'contact', 'company',
+  'unit_inspection', 'inspection_finding'
 ];
 
 function resolveParent(searchParams) {
@@ -31,16 +32,18 @@ function resolveParent(searchParams) {
   if (direct.type && direct.id) return direct;
 
   const shorthandMap = {
-    property_id:      'property',
-    unit_id:          'unit',
-    project_id:       'project',
-    subcontract_id:   'subcontract',
-    project_draw_id:  'project_draw',
-    change_order_id:  'change_order',
-    inspection_id:    'inspection',
-    task_id:          'task',
-    contact_id:       'contact',
-    company_id:       'company'
+    property_id:           'property',
+    unit_id:               'unit',
+    project_id:            'project',
+    subcontract_id:        'subcontract',
+    project_draw_id:       'project_draw',
+    change_order_id:       'change_order',
+    inspection_id:         'inspection',
+    task_id:               'task',
+    contact_id:            'contact',
+    company_id:            'company',
+    unit_inspection_id:    'unit_inspection',
+    inspection_finding_id: 'inspection_finding'
   };
   for (const [param, type] of Object.entries(shorthandMap)) {
     const id = searchParams.get(param);
