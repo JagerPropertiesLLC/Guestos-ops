@@ -9,7 +9,9 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const market = searchParams.get('market');
-  const type = searchParams.get('type');
+  const type   = searchParams.get('type');
+  const search = searchParams.get('q');
+  const limit  = parseInt(searchParams.get('limit') || '0', 10);
 
   const supa = getSupabaseAdmin();
   let q = supa.from('companies').select(`
@@ -22,6 +24,8 @@ export async function GET(request) {
     if (m) q = q.or(`primary_market_id.eq.${m.id},multi_market.eq.true`);
   }
   if (type) q = q.eq('type', type);
+  if (search) q = q.ilike('name', `%${search}%`);
+  if (limit > 0) q = q.limit(limit);
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

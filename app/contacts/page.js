@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 export default function ContactsPage() {
   const [tab, setTab] = useState('contacts');
@@ -57,9 +58,15 @@ function ContactsList() {
         <tbody>
           {contacts.map((c) => (
             <tr key={c.id}>
-              <td style={td}>{c.first_name} {c.last_name}</td>
+              <td style={td}>
+                <Link href={`/contacts/${c.id}`} style={{ color: '#0f172a' }}>
+                  {c.first_name} {c.last_name}
+                </Link>
+              </td>
               <td style={td}>{c.trade || '—'}</td>
-              <td style={td}>{c.company?.name || '—'}</td>
+              <td style={td}>
+                {c.company ? <Link href={`/companies/${c.company.id}`} style={{ color: '#475569' }}>{c.company.name}</Link> : '—'}
+              </td>
               <td style={td}>{c.multi_market ? 'Multi' : (c.market?.name || '—')}</td>
               <td style={td}>{c.phone || '—'}</td>
               <td style={td}>{c.email || '—'}</td>
@@ -152,7 +159,9 @@ function CompaniesList() {
         <tbody>
           {companies.map((c) => (
             <tr key={c.id}>
-              <td style={td}>{c.name}</td>
+              <td style={td}>
+                <Link href={`/companies/${c.id}`} style={{ color: '#0f172a' }}>{c.name}</Link>
+              </td>
               <td style={td}>{c.type || '—'}</td>
               <td style={td}>{c.multi_market ? 'Multi' : (c.market?.name || '—')}</td>
               <td style={td}>{c.phone || '—'}</td>

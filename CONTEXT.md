@@ -1,7 +1,7 @@
 # Casitas En Pueblo — Property & Construction Management Platform
 
 **Owner:** Judson Jager (judson@duracoproperties.com)
-**Last updated:** May 4, 2026
+**Last updated:** May 4, 2026 (Phase 6 shipped)
 
 ---
 
@@ -48,7 +48,10 @@ Eventually replaces Hostaway as its own channel manager (direct sync to Airbnb /
 | **Insurance & Compliance** | Property × coverage traffic-light grid, vendor COI table, renewal-request stub | Shipped |
 | **Property Tax** | Records list with paid/due/overdue pills | Shipped |
 | **Auth / RBAC** | Capabilities catalog, per-grant overrides, super-admin hardcode for now | Shipped scaffold, RLS off |
-| **Construction** | Projects, phases, budget, expenses, subs (G702/G703), loans, draws, COs, inspections, permits, SWPPP | Phase 5 shipped |
+| **Construction** | Projects, phases, budget, expenses, subs (G702/G703), loans, draws, COs, inspections, permits, SWPPP, project files + photos | Phase 6 shipped |
+| **Files / Required Docs** | Property + subcontractor checklists driven by 55 templates, slot auto-gen on insert, signed-URL document store | Phase 6 shipped |
+| **Field Log** | Mobile capture, untagged inbox, batch tagging, route-to-task (with AI rewrite) or route-to-document | Phase 6 shipped |
+| **Photo Reports** | Date-range PDF export with cover page + chronological grid, brand-aware header (Casitas vs DuraCo) | Phase 6 shipped |
 
 The audit also found ~24 sidebar nav entries that 404 (mostly `/short-term/*` and `/long-term/*` placeholders) and a couple of API routes referenced from UI that don't exist (`/api/leases`, `/api/tenants`). Tracked under "Open questions."
 
@@ -152,8 +155,9 @@ Lives at `/construction` and `/construction/[id]`.
 | **3** | Subcontracts (AIA G702/G703 line items), loans, draws |
 | **4** | SWPPP — projects, inspections, BMPs, signature image, PDF export, weather-driven SMS workflow |
 | **5** *(May 3)* | Tasks, change orders, construction inspections, SwpppTab inline section, DELETE retrofit (sub w/ deps → 409 with combined `draws + change_orders` count), `open_inspections` added to counts shape |
+| **6** *(May 4)* | Documents extension (sections/subsections, slot link, signed-URL store), required-doc templates + auto-gen slots for properties + sub companies, field-log capture/inbox/route, ContactPicker + CompanyPicker components, company + contact detail pages with linked records, project Documents + Photos sections (replacing the stub), photo report PDF generator |
 
-**Project page sections (9 total):** Overview · Subcontractors · Inspections · Permits · SWPPP · Change Orders · Draws & Lien Waivers · Documents · Photos. Documents and Photos are stubs — Phase 6 fills them in.
+**Project page sections (9 total):** Overview · Subcontractors · Inspections · Permits · SWPPP · Change Orders · Draws & Lien Waivers · Documents · Photos. All wired as of Phase 6.
 
 **`counts` shape on project header:** `open_tasks`, `pending_change_orders`, `subcontracts`, `open_inspections`.
 
@@ -169,14 +173,31 @@ Views: `project_financials` (`total_spent = expenses_paid + draws_paid`, replace
 
 CHECK constraints + `updated_at` columns on `subcontracts`, `subcontract_line_items`, `project_draws`, `change_orders`, `inspections`, `tasks`. Drop the denormalized `subcontracts.amount_paid` / `.amount_retained` once we're sure nothing reads them. `co_number` race-safety. Real per-caller `tasks.org_id` resolution before second tenant. Bundle in one cleanup migration.
 
-### Phase 6 (queued — corrected scope)
+### Phase 6 — what shipped
 
-Files + required-docs checklists + Rolodex polish + field log + photo report PDF. **Must adapt to the existing schema:**
-- **`documents` already exists** as the canonical doc store, with FKs from `coi_records`, `licenses`, `permits`, `policies`, `tenant_*`, `house_manuals`, `project_loans`, `project_expenses.invoice_document_id`, `property_taxes`, etc. Extend it with section/subsection + a "fulfills required slot" link, don't make a parallel `files` table.
-- **`contacts` is "people at companies"** with FK to `companies`, not a flat name+tags model. Vendor required-docs (W-9/COI/license) belong on `companies` (which already has `w9_on_file`, `coi_on_file`, `coi_expires`, `ein`).
-- **New tables only for genuinely novel things:** required-doc templates + per-property/per-company slots, field-log photos, photo-report metadata.
+- **`documents` extended** with `org_id`, `description`, `mime_type`, `file_size_bytes`, `section`, `subsection`, `storage_bucket`, `storage_path`, `updated_at`, `required_doc_slot_id`. Existing FK consumers (`coi_records.document_id`, `licenses.document_id`, etc.) untouched.
+- **`required_doc_templates`** seeded with 55 rows: 27 STR-property, 23 LTR-property, 5 subcontractor-company. CHECK constraint on `entity_type` keeps the seed honest.
+- **`required_doc_slots`** auto-generated via `AFTER INSERT` triggers on `properties` (per `property_type[]` tag) and `companies` (when `type='sub'`, including UPDATE → `'sub'` flips). Backfilled the 6 existing properties (5 × 27 STR + 1 × 23 LTR = 158 slots).
+- **`field_log_photos`** with resolved-status lifecycle (`untagged` → `tagged` → `routed`), GPS columns, and FKs to the routed task or document.
+- **`tasks.source text`** added; field-log-routed issue tasks get `source='field_log'`.
+- **Storage buckets** `platform-files` (private, all documents) and `field-log` (private, raw captures) created. `task-photos` (existing public bucket) keeps its role for STR maintenance + field-log issue routing.
+- **Convention pinned:** `companies.type='sub'` triggers subcontractor required-docs (matches existing UI vocab in `app/contacts/page.js`).
 
-Pending the corrected build prompt before kickoff.
+### Phase 6 — endpoints + UI
+
+- `/api/documents` (GET list with parent shorthand filters; POST multipart upload with optional `fulfills_slot_id`); `/api/documents/[id]` (GET signed URL, PATCH metadata, DELETE with bucket cleanup + slot reset).
+- `/api/properties/[id]` (metadata + units), `/api/properties/[id]/required-docs`, `/api/companies/[id]/required-docs`, `/api/required-doc-slots/[id]` (PATCH for `not_applicable`/`required`).
+- `/api/companies/[id]/linked` and `/api/contacts/[id]/linked` for the Linked Records tabs. `DELETE` on `/api/companies/[id]` and `/api/contacts/[id]` retrofitted with 409 + dependency breakdown via `lib/rolodexDeps.js`.
+- `/api/field-log/capture`, `/api/field-log/inbox`, `/api/field-log/photos/[id]` (PATCH), `/api/field-log/photos/[id]/route` (POST), `/api/field-log/batch-tag`.
+- `/api/photo-reports/generate` — PDF via `lib/photoReportPdf.js` (cover + 2×3 grid per page), uploaded to `platform-files`, also stored as a `documents` row in `subsection='reports'` so it shows up in the All Files tab.
+- New UI: `/short-term/properties/[id]` and `/long-term/properties/[id]` (shared `components/property/PropertyDetail.js` with Required Documents | All Files | Site Visits tabs), `/companies/[id]`, `/contacts/[id]`, `/field-log`, `/field-log/capture`, `/field-log/inbox`. Construction project page now renders `ProjectFilesSection` and `ProjectPhotosSection` instead of the old "Files & contacts" stub.
+- `ContactPicker` and `CompanyPicker` components added (typeahead + create-new inline). Existing `VendorPicker` in construction modals already covered the company side, so it stays — the new components are reused on the new detail pages and available for future modals.
+
+### Phase 6 — deferred / not done
+
+- Did **not** retrofit `VendorPicker` calls in construction modals to swap in the new `CompanyPicker`. The existing wiring works; not worth the risk this phase.
+- Did **not** add a contact-side picker to Subcontract / Inspection / CO modals. Those modals only deal with `company_id`; adding `contact_id` UI is future polish.
+- Did **not** wire the `/short-term/properties` or `/long-term/properties` index routes — sidebar still links to those (and to the unbuilt routes listed in "Open questions"). Property cards on `/short-term` and `/long-term` already work as a workaround.
 
 ---
 
@@ -250,19 +271,21 @@ API routes under `/api/construction/projects/[id]/*` (canonical), plus older un-
 - **Apr 28** — Dream team uses `display_name` UNIQUE constraint. Roster locked: Darcee, Jaime, JWV, Judson Jager, Sam, Wendy.
 - **May 3** — Phase 5 design decisions: `org_id` singleton lookup deferred (refactor later when 2nd org), SwpppTab inline (not detail page), `open_inspections` added to header counts shape.
 - **May 4** — CONTEXT.md rewritten after audit found ~6 weeks of drift (full LTR / Marina / CAM / Tenant Portal / Insurance / Property Tax / Maintenance / Scheduler infrastructure built without documenting). Construction tables confirmed unprefixed (`projects` not `construction_projects`; tasks unified). Phase 6 paused pending corrected build prompt that uses existing `documents` + `contacts`/`companies` tables instead of inventing parallels.
+- **May 4** — Phase 6 design decisions: extend `documents` rather than create parallel `files` (preserves 14+ upstream FKs); subcontractor required-docs live on `companies` (which already has `w9_on_file`/`coi_on_file`/`coi_expires`); `companies.type='sub'` is the slug that triggers slot auto-gen (matches existing UI convention); slot generation runs via Postgres `AFTER INSERT` triggers (bulletproof against direct Supabase Studio inserts); field-log issue routing copies photos to the existing public `task-photos` bucket so `/tasks/rewrite` vision Claude can read them via URL; photo report PDF uses text headers only this phase (no logo upload).
 
 ---
 
 ## In flight
 
-Nothing actively building. Phase 6 (Files + Required-docs + Field log + Photo reports) is paused pending the corrected build prompt — see Open questions.
+Nothing actively building. Phase 6 just shipped (May 4). Phase 7 queued — Sam's post-checkout inspection workflow + cleaning-schedule parallel-unit support.
 
 ---
 
 ## Open questions / Next up
 
 ### Immediate
-- **Phase 6 corrected build prompt** — extend `documents`, use `contacts`/`companies` Rolodex, vendor required-docs at the company level. Greenlight the corrected prompt before kicking off.
+- **Manual click-through of Phase 6 in prod** — pick a property, upload a doc to a required slot, mark another N/A, capture a field-log photo on a phone, route it to a task and to a document, generate a photo report, delete a doc and confirm the slot resets. Do this on both West Center Tech and Kalamath (project-side) plus one STR property.
+- **Phase 7 kickoff** — Sam's post-checkout inspection workflow + cleaning-schedule parallel-unit support.
 - Trim or build the ~24 dead sidebar nav links — they 404 silently right now.
 - Decide canonical SWPPP cron home (Vercel `/api/cron/*` vs Railway `swppp-cron.js`) and remove the duplicate.
 - Build `/api/leases` + `/api/tenants` (the minimal endpoints `/long-term/leases` is already calling).

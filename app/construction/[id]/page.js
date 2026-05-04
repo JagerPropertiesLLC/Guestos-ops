@@ -7,11 +7,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, FolderOpen,
+  ChevronLeft,
 } from 'lucide-react';
 import { tokens } from '@/components/construction/_tokens';
 import ProjectHeader from '@/components/construction/ProjectHeader';
-import ProjectStubSection from '@/components/construction/ProjectStubSection';
 import BudgetSection from '@/components/construction/BudgetSection';
 import PhasesSection from '@/components/construction/PhasesSection';
 import ExpensesSection from '@/components/construction/ExpensesSection';
@@ -21,6 +20,8 @@ import DrawsSection from '@/components/construction/DrawsSection';
 import TasksSection from '@/components/construction/TasksSection';
 import ChangeOrdersSection from '@/components/construction/ChangeOrdersSection';
 import InspectionsSection from '@/components/construction/InspectionsSection';
+import ProjectFilesSection from '@/components/construction/ProjectFilesSection';
+import ProjectPhotosSection from '@/components/construction/ProjectPhotosSection';
 
 export default function ConstructionProjectPage() {
   const router = useRouter();
@@ -104,13 +105,8 @@ export default function ConstructionProjectPage() {
       <TasksSection projectId={id} />
       <ChangeOrdersSection projectId={id} />
       <InspectionsSection projectId={id} />
-
-      <ProjectStubSection
-        title="Files & contacts"
-        phase="phase 6"
-        icon={FolderOpen}
-        description="Project Drive folder, key contacts (architect, GC, lender, inspector), permits and COIs."
-      />
+      <ProjectFilesSection projectId={id} />
+      <ProjectPhotosSection projectId={id} project={data.project} />
     </main>
   );
 }
