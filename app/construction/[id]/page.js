@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, ListTodo, Banknote,
+  ChevronLeft, ListTodo,
   ClipboardEdit, ShieldCheck, FolderOpen,
 } from 'lucide-react';
 import { tokens } from '@/components/construction/_tokens';
@@ -17,6 +17,8 @@ import BudgetSection from '@/components/construction/BudgetSection';
 import PhasesSection from '@/components/construction/PhasesSection';
 import ExpensesSection from '@/components/construction/ExpensesSection';
 import SubcontractsSection from '@/components/construction/SubcontractsSection';
+import LoansSection from '@/components/construction/LoansSection';
+import DrawsSection from '@/components/construction/DrawsSection';
 
 export default function ConstructionProjectPage() {
   const router = useRouter();
@@ -95,18 +97,14 @@ export default function ConstructionProjectPage() {
       <PhasesSection projectId={id} />
       <ExpensesSection projectId={id} />
       <SubcontractsSection projectId={id} />
+      <LoansSection projectId={id} />
+      <DrawsSection projectId={id} />
 
       <ProjectStubSection
         title="Tasks"
         phase="phase 5"
         icon={ListTodo}
         description="Open punch list, assignees, due dates. Reuses the existing tasks table scoped to this project."
-      />
-      <ProjectStubSection
-        title="Loans & draws"
-        phase="phase 4"
-        icon={Banknote}
-        description="Construction loans, draw schedule, drawn-to-date, available balance, lien waiver tracking."
       />
       <ProjectStubSection
         title="Change orders"

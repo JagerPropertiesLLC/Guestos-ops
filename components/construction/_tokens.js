@@ -27,7 +27,9 @@ export const STATUS_COLORS = {
   pending:          { bg: '#fef3c7', fg: '#854d0e' }, // gold
   paid_off:         { bg: '#e2e8f0', fg: '#334155' }, // slate
   defaulted:        { bg: '#fee2e2', fg: '#991b1b' }, // red
-  // Draw
+  refinanced:       { bg: '#e0e7ff', fg: '#3730a3' }, // indigo
+  closed:           { bg: '#e2e8f0', fg: '#64748b' }, // slate dim
+  // Draw — 'cancelled' already mapped above (slate dim) and reused for draws
   requested:        { bg: '#fef3c7', fg: '#854d0e' }, // gold
   approved:         { bg: '#d1fae5', fg: '#065f46' }, // green
   paid:             { bg: '#e0e7ff', fg: '#3730a3' }, // indigo

@@ -15,6 +15,7 @@ import StatusPill from '@/components/construction/StatusPill';
 import SubcontractModal from '@/components/construction/SubcontractModal';
 import LineItemsEditor from '@/components/construction/LineItemsEditor';
 import LineItemsRollupBar from '@/components/construction/LineItemsRollupBar';
+import ScopedDrawsList from '@/components/construction/ScopedDrawsList';
 
 export default function SubcontractDetailPage() {
   const router = useRouter();
@@ -61,6 +62,13 @@ export default function SubcontractDetailPage() {
     setDeleting(true);
     try {
       const r = await fetch(`/api/construction/projects/${projectId}/subcontracts/${subId}`, { method: 'DELETE' });
+      if (r.status === 409) {
+        const j = await r.json().catch(() => ({}));
+        if (j.error === 'has_draws') {
+          throw new Error(`Cannot delete: ${j.count} draw${j.count === 1 ? '' : 's'} reference${j.count === 1 ? 's' : ''} this subcontract. Delete or detach the draws first.`);
+        }
+        throw new Error(j.error || `HTTP 409`);
+      }
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${r.status}`);
@@ -133,6 +141,14 @@ export default function SubcontractDetailPage() {
         subcontractId={subId}
         retainagePctDefault={subcontract.retainage_pct}
         lineItems={line_items}
+        onChanged={refresh}
+      />
+
+      <ScopedDrawsList
+        projectId={projectId}
+        subcontractId={subId}
+        subcontracts={[subcontract]}
+        loans={[]}
         onChanged={refresh}
       />
 
