@@ -120,16 +120,24 @@ export async function DELETE(req, { params }) {
 
   const supa = getSupabaseAdmin();
 
-  // project_draws.subcontract_id is FK ON DELETE NO ACTION — bare DELETE on
-  // a sub with draws would 500 with a raw FK violation. Pre-check and return
-  // a clean 409 with the count so the UI can surface it.
-  const { count: drawCount, error: countErr } = await supa
-    .from('project_draws')
-    .select('id', { count: 'exact', head: true })
-    .eq('subcontract_id', params.subId);
-  if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
-  if ((drawCount ?? 0) > 0) {
-    return NextResponse.json({ error: 'has_draws', count: drawCount }, { status: 409 });
+  // Both project_draws.subcontract_id and change_orders.subcontract_id are
+  // FK ON DELETE NO ACTION — bare DELETE on a sub with either dependent
+  // would 500 with a raw FK violation. Pre-check both and return a clean
+  // 409 with the counts so the UI can surface them.
+  const [drawsRes, cosRes] = await Promise.all([
+    supa.from('project_draws').select('id', { count: 'exact', head: true }).eq('subcontract_id', params.subId),
+    supa.from('change_orders' ).select('id', { count: 'exact', head: true }).eq('subcontract_id', params.subId),
+  ]);
+  if (drawsRes.error) return NextResponse.json({ error: drawsRes.error.message }, { status: 500 });
+  if (cosRes.error)   return NextResponse.json({ error: cosRes.error.message },   { status: 500 });
+
+  const drawCount = drawsRes.count ?? 0;
+  const coCount   = cosRes.count   ?? 0;
+  if (drawCount > 0 || coCount > 0) {
+    return NextResponse.json(
+      { error: 'has_dependents', counts: { draws: drawCount, change_orders: coCount } },
+      { status: 409 }
+    );
   }
 
   const { error } = await supa

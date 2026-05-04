@@ -64,6 +64,13 @@ export default function SubcontractDetailPage() {
       const r = await fetch(`/api/construction/projects/${projectId}/subcontracts/${subId}`, { method: 'DELETE' });
       if (r.status === 409) {
         const j = await r.json().catch(() => ({}));
+        if (j.error === 'has_dependents') {
+          const parts = [];
+          if (j.counts?.draws         > 0) parts.push(`${j.counts.draws} draw${j.counts.draws === 1 ? '' : 's'}`);
+          if (j.counts?.change_orders > 0) parts.push(`${j.counts.change_orders} change order${j.counts.change_orders === 1 ? '' : 's'}`);
+          throw new Error(`Cannot delete: ${parts.join(' and ')} reference this subcontract. Delete or detach them first.`);
+        }
+        // Backward compat for old-shape responses (cached deploys, etc.)
         if (j.error === 'has_draws') {
           throw new Error(`Cannot delete: ${j.count} draw${j.count === 1 ? '' : 's'} reference${j.count === 1 ? 's' : ''} this subcontract. Delete or detach the draws first.`);
         }

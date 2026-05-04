@@ -7,8 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ChevronLeft, ListTodo,
-  ClipboardEdit, ShieldCheck, FolderOpen,
+  ChevronLeft, FolderOpen,
 } from 'lucide-react';
 import { tokens } from '@/components/construction/_tokens';
 import ProjectHeader from '@/components/construction/ProjectHeader';
@@ -19,6 +18,9 @@ import ExpensesSection from '@/components/construction/ExpensesSection';
 import SubcontractsSection from '@/components/construction/SubcontractsSection';
 import LoansSection from '@/components/construction/LoansSection';
 import DrawsSection from '@/components/construction/DrawsSection';
+import TasksSection from '@/components/construction/TasksSection';
+import ChangeOrdersSection from '@/components/construction/ChangeOrdersSection';
+import InspectionsSection from '@/components/construction/InspectionsSection';
 
 export default function ConstructionProjectPage() {
   const router = useRouter();
@@ -99,25 +101,10 @@ export default function ConstructionProjectPage() {
       <SubcontractsSection projectId={id} />
       <LoansSection projectId={id} />
       <DrawsSection projectId={id} />
+      <TasksSection projectId={id} />
+      <ChangeOrdersSection projectId={id} />
+      <InspectionsSection projectId={id} />
 
-      <ProjectStubSection
-        title="Tasks"
-        phase="phase 5"
-        icon={ListTodo}
-        description="Open punch list, assignees, due dates. Reuses the existing tasks table scoped to this project."
-      />
-      <ProjectStubSection
-        title="Change orders"
-        phase="phase 5"
-        icon={ClipboardEdit}
-        description="Pending and approved change orders with cost and schedule impact."
-      />
-      <ProjectStubSection
-        title="Inspections (incl. SWPPP)"
-        phase="phase 5"
-        icon={ShieldCheck}
-        description="SWIP, fire, building, and SWPPP weekly inspections. Pass/fail history with follow-up tracking. SWPPP is a recurring inspection regime — re-integrating the existing SwpppTab here."
-      />
       <ProjectStubSection
         title="Files & contacts"
         phase="phase 6"

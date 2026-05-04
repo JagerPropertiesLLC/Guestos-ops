@@ -105,6 +105,76 @@ addressed.
 
 ---
 
+## tasks
+
+### Add CHECK on `tasks.status`
+Phase-5 API enforces the allowlist
+`['pending', 'in_progress', 'completed', 'cancelled']` (matches the
+`counts.open_tasks` math: open = not completed/cancelled). DB has no
+CHECK on this column today, so direct SQL writes can produce arbitrary
+status values that the app won't classify correctly.
+
+**Deferred because:** existing rows from the cleaning/maintenance flows
+may use other status values; an audit + reconcile is needed before adding
+the constraint.
+
+---
+
+## change_orders
+
+### Add CHECK on `change_orders.status`
+Phase-5 API enforces `['pending', 'approved', 'rejected', 'cancelled']`.
+DB has no CHECK; default is `'pending'`. Move into a CHECK constraint to
+match.
+
+### Add `updated_at` column
+Same gap as `project_draws` — `change_orders` only has `created_at`. The
+phase-5 PATCH route intentionally skips stamping. Add the column with
+`default now()` and start stamping from the API.
+
+### `co_number` is text-numbered ('CO-001', 'CO-002', …) by API only
+Schema is `text`, nullable, no auto. Phase-5 API parses the existing max
+`CO-###` per project and auto-assigns the next slot. Two parallel POSTs
+could race and produce duplicates. Long-term options:
+- Add a unique constraint on `(project_id, co_number)` so the second
+  POST cleanly fails with a constraint violation
+- Move numbering into a SERIAL/sequence column
+
+**Deferred because:** sequential CO creation in practice has no race risk
+for the current single-user deployment; revisit when multi-user comes online.
+
+---
+
+## inspections
+
+### Add CHECK on `inspections.result`
+Phase-5 API enforces
+`['passed', 'failed', 'conditional_pass', 'rescheduled']` (when set).
+DB has no CHECK.
+
+### Add CHECK or reference table for `inspections.inspection_type`
+Free text today (common values: building, electrical, plumbing, mechanical,
+fire, framing, foundation, rough-in, final, third-party). UI uses a
+`<datalist>` for hints. If standardization becomes important (e.g. for
+reporting), promote to a reference table or CHECK enum.
+
+**Deferred because:** type vocabulary varies by jurisdiction — premature
+standardization will block real-world usage.
+
+---
+
+## tasks (multi-tenancy)
+
+### `tasks.org_id` is currently treated as a singleton
+The `tasks` table has `org_id` NOT NULL with FK to `organizations`.
+Phase-5 API queries the singleton organization row at request time and
+stamps it. Works for the current single-org deployment; will break once a
+second org row exists. Add a real per-caller org lookup (probably via the
+`app_users` row already used by `assertConstructionAccess`) before
+standing up a second tenant.
+
+---
+
 ## Cross-cutting UX caveat (not a schema cleanup)
 
 `project_financials.total_spent = expenses_paid + draws_paid`. If the same

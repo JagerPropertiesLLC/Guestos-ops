@@ -45,16 +45,19 @@ export async function GET(req, { params }) {
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
   if (!p)   return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-  const [finRes, taskRes, coRes, subRes] = await Promise.all([
+  const [finRes, taskRes, coRes, subRes, inspRes] = await Promise.all([
     supa.from('project_financials').select('*').eq('project_id', id).maybeSingle(),
     supa.from('tasks').select('status').eq('project_id', id),
     supa.from('change_orders').select('status').eq('project_id', id),
     supa.from('subcontracts').select('id').eq('project_id', id),
+    // Open inspection = no completed_date (covers both "requested" and "scheduled")
+    supa.from('inspections').select('id, completed_date').eq('project_id', id),
   ]);
 
-  const open_tasks       = (taskRes.data || []).filter(t => t.status !== 'completed' && t.status !== 'cancelled').length;
-  const pending_cos      = (coRes.data   || []).filter(c => c.status === 'pending').length;
-  const subcontracts     = (subRes.data  || []).length;
+  const open_tasks        = (taskRes.data || []).filter(t => t.status !== 'completed' && t.status !== 'cancelled').length;
+  const pending_cos       = (coRes.data   || []).filter(c => c.status === 'pending').length;
+  const subcontracts      = (subRes.data  || []).length;
+  const open_inspections  = (inspRes.data || []).filter(i => !i.completed_date).length;
 
   return NextResponse.json({
     project: {
@@ -66,7 +69,7 @@ export async function GET(req, { params }) {
       gc_name:               p.gc?.name               || null,
     },
     financials: finRes.data || null,
-    counts: { open_tasks, pending_change_orders: pending_cos, subcontracts },
+    counts: { open_tasks, pending_change_orders: pending_cos, subcontracts, open_inspections },
   });
 }
 

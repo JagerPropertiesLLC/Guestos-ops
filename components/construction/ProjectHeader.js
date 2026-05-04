@@ -167,6 +167,7 @@ export default function ProjectHeader({ project, financials, counts, onChanged }
         <CountChip label="Open tasks"        n={counts?.open_tasks} />
         <CountChip label="Subcontracts"      n={counts?.subcontracts} />
         <CountChip label="Pending COs"       n={counts?.pending_change_orders} highlight={counts?.pending_change_orders > 0} />
+        <CountChip label="Open inspections"  n={counts?.open_inspections}      highlight={counts?.open_inspections > 0} />
       </div>
 
       <div style={s.notesBlock}>
