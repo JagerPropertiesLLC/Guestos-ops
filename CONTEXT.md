@@ -1,7 +1,7 @@
 # Casitas En Pueblo — Property & Construction Management Platform
 
 **Owner:** Judson Jager (judson@duracoproperties.com)
-**Last updated:** May 4, 2026 (Phase 6 shipped)
+**Last updated:** May 4, 2026 (Phase 7a + 7b shipped)
 
 ---
 
@@ -52,6 +52,8 @@ Eventually replaces Hostaway as its own channel manager (direct sync to Airbnb /
 | **Files / Required Docs** | Property + subcontractor checklists driven by 55 templates, slot auto-gen on insert, signed-URL document store | Phase 6 shipped |
 | **Field Log** | Mobile capture, untagged inbox, batch tagging, route-to-task (with AI rewrite) or route-to-document | Phase 6 shipped |
 | **Photo Reports** | Date-range PDF export with cover page + chronological grid, brand-aware header (Casitas vs DuraCo) | Phase 6 shipped |
+| **Unit Inspections** | Sam's post-checkout workflow on `/inspections/[id]`, Judson's review queue at `/inspections/review`, finding line items with photos, promotion to `pending_charges` / `pending_insurance_claims` | Phase 7a shipped |
+| **Parallel Cleaning** | Per-unit time-tracking on `schedule_units` (start/pause/resume/complete), `cleaning_pause_windows` for elapsed-time math, field-log unit picker pins active jobs | Phase 7b shipped |
 
 The audit also found ~24 sidebar nav entries that 404 (mostly `/short-term/*` and `/long-term/*` placeholders) and a couple of API routes referenced from UI that don't exist (`/api/leases`, `/api/tenants`). Tracked under "Open questions."
 
@@ -199,6 +201,23 @@ CHECK constraints + `updated_at` columns on `subcontracts`, `subcontract_line_it
 - Did **not** add a contact-side picker to Subcontract / Inspection / CO modals. Those modals only deal with `company_id`; adding `contact_id` UI is future polish.
 - Did **not** wire the `/short-term/properties` or `/long-term/properties` index routes — sidebar still links to those (and to the unbuilt routes listed in "Open questions"). Property cards on `/short-term` and `/long-term` already work as a workaround.
 
+### Phase 7a — what shipped (post-checkout inspections)
+
+- **`unit_inspections`** — Sam logs damage findings post-checkout, stamped with `unit_id`, `property_id`, `reservation_id` (best-effort lookup of latest non-cancelled departure ≤ today), `schedule_unit_id` (links back to the cleaning task), `inspected_by`, `started_at`/`completed_at`, status (`in_progress|submitted|reviewed|closed`), `damage_summary`, `review_notes`, `reviewed_by`/`reviewed_at`. Distinct from construction `inspections` (project-scoped).
+- **`inspection_findings`** — line items per inspection: `finding_type` (damage/missing/extra_cleaning/other), severity, description, `estimated_cost_cents`, `charge_to` (guest/none/tbd), `claim_eligible`. Cascade-deletes with parent inspection.
+- **`pending_charges`** — guest-billable charges proposed during review. Status flow: `pending → approved → collected | waived | disputed`. Linked to inspection + finding (SET NULL on delete).
+- **`pending_insurance_claims`** — insurance claims proposed during review. Status: `pending → filed → denied | paid | dropped` plus `claim_number`, `filed_by`/`filed_at`, `resolution_amount_cents`.
+- **Photos** attach polymorphically via `documents.parent_type IN ('unit_inspection','inspection_finding')` — no parallel photos table. Documents API allowlist extended for both new parent types.
+- **Endpoints:** `/api/inspections/units` (GET list, POST create with `schedule_unit_id` resolver: property `short_name` + unit_label fuzzy match), `/api/inspections/units/[id]` (GET full detail with findings + photos, PATCH for status/notes/summary, DELETE), `/api/inspections/units/[id]/promote` (Judson promotes selected findings to charges/claims and flips inspection to reviewed/closed), `/api/inspections/findings` + `/[id]` (CRUD), `/api/inspections/review-queue` (submitted-only by default, `?include_in_progress=1` to peek at drafts).
+- **UI:** `/inspections/[id]` (Sam's mobile workspace — finding cards, per-finding photo capture, damage summary, submit-for-review button); `/inspections/review` (Judson's queue with finding-summary chips); `/inspections/review/[id]` (per-finding action grid: skip/charge/claim/both, with editable amount fields). `Start Post-Checkout Inspection` button added inside the expanded UnitCard on `/schedule`. `Inspections` tab added to `PropertyDetail`.
+
+### Phase 7b — what shipped (parallel-unit cleaning)
+
+- **`schedule_units`** extended additively (existing nightly Railway scheduler keeps working unchanged): `unit_id` (nullable FK to `units`, populated by future schedule builds), `reservation_id` (nullable), `started_at`, `stopped_at`, `cleaner_id` (FK to `app_users`), `unit_status text NOT NULL DEFAULT 'idle' CHECK IN (idle|cleaning|paused|complete)`. The new `unit_status` is distinct from the existing `status` (pending|in_progress|done|issue) — `status` remains Sam's manual override surface; `unit_status` is the time-tracked state machine.
+- **`cleaning_pause_windows`** — open/close pairs (`paused_at`, `resumed_at`) per `schedule_unit_id` for accurate elapsed-time math (working time excludes pauses).
+- **Endpoints:** `/api/cleaning/units/[id]/start` (stamps `started_at` + `cleaner_id`, idempotent), `/pause` (closes any stray open windows then opens a new one with optional `reason`), `/resume` (closes open window, flips back to cleaning), `/complete` (closes window, stamps `stopped_at`, returns `elapsed_seconds` excluding pauses, also flips legacy `status='done'`); `/api/cleaning/active-units?date=YYYY-MM-DD` (defaults today, lists `cleaning|paused`).
+- **UI:** `/schedule` UnitCard gets Start / Pause / Resume / Complete buttons keyed off `unit_status`, plus a live elapsed-time counter (client-side ticks every 1s). Multiple units can be in flight simultaneously across different cleaners. Field-log `TargetPicker` adds a "Cleaning now" section pinned above Recent — picking one pre-fills `unit_id` on the next photo's tags.
+
 ---
 
 ## SWPPP sub-module — State (complete)
@@ -277,7 +296,7 @@ API routes under `/api/construction/projects/[id]/*` (canonical), plus older un-
 
 ## In flight
 
-Nothing actively building. Phase 6 just shipped (May 4). Phase 7 queued — Sam's post-checkout inspection workflow + cleaning-schedule parallel-unit support.
+Nothing actively building. Phase 7a + 7b just shipped (May 4). Manual smoke test pending — exercise on a real cleaning day.
 
 ---
 
@@ -285,7 +304,9 @@ Nothing actively building. Phase 6 just shipped (May 4). Phase 7 queued — Sam'
 
 ### Immediate
 - **Manual click-through of Phase 6 in prod** — pick a property, upload a doc to a required slot, mark another N/A, capture a field-log photo on a phone, route it to a task and to a document, generate a photo report, delete a doc and confirm the slot resets. Do this on both West Center Tech and Kalamath (project-side) plus one STR property.
-- **Phase 7 kickoff** — Sam's post-checkout inspection workflow + cleaning-schedule parallel-unit support.
+- **Manual click-through of Phase 7a/7b in prod** — start a cleaning from `/schedule` (verify timer ticks, pause/resume bookkeeping is right), open a Post-Checkout Inspection from the same card, add a finding with a photo, submit, then on `/inspections/review/[id]` promote it to a pending charge with a custom dollar amount and confirm the row appears in `pending_charges`. Verify the field-log target picker pins the active unit when a cleaning is in progress.
+- **Schedule build hardening** — Phase 7b adds nullable `schedule_units.unit_id` + `reservation_id`. Update the Railway nightly schedule build (`casitasenpueblo-agent`) to populate them so the inspection auto-resolver doesn't have to fall back to `short_name`/`unit_label` text matching.
+- **Pending charges / claims dashboards** — tables exist + are populated by `/promote`, but no UI to view/work the queue yet. Likely Phase 8 work.
 - Trim or build the ~24 dead sidebar nav links — they 404 silently right now.
 - Decide canonical SWPPP cron home (Vercel `/api/cron/*` vs Railway `swppp-cron.js`) and remove the duplicate.
 - Build `/api/leases` + `/api/tenants` (the minimal endpoints `/long-term/leases` is already calling).
