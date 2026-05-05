@@ -30,7 +30,9 @@ NEVER push directly to main on either repo. Always:
 3. Open a PR
 4. Merge via `gh pr merge` or GitHub UI
 
-This applies even though `CasitasEnPueblo-Agent` has no enforced branch protection (private repo on Free plan). Treat the convention as if it were enforced.
+`Guestos-ops` enforces this with GitHub branch protection on `main` (PRs required, no direct pushes). `CasitasEnPueblo-Agent` has no enforced protection (private repo on Free plan) — treat the convention as if it were enforced.
+
+Both repos also have a guard at the top of `deploy.bat` that aborts if the current branch is `main` (and `gh pr` is the deploy path now). Don't disable the guard.
 
 ---
 
@@ -87,6 +89,14 @@ Auto-deploys: Railway and Vercel both auto-deploy from `main` on push. Vercel en
 
 ---
 
+## Planning docs / Pointers
+
+- **`LTR_ROADMAP.md`** (root of `Guestos-ops`) — Phase 8–16 sequencing for the LTR module, plus Colorado 2024–2026 compliance reference (PTSR, for-cause eviction, security-deposit overhaul) and vendor research. Read before doing any LTR work.
+- **`project_pending_schema_cleanups.md`** (root of `Guestos-ops`) — deferred construction-module schema cleanups (CHECK constraints, `updated_at` columns, `co_number` race-safety, denormalized field cleanup). Bundle in one cleanup migration when picked up.
+- **`CasitasEnPueblo-Agent/CLAUDE.md`** — Railway server architecture detail; read before changing the agent.
+
+---
+
 ## STR side — State
 
 ### Properties
@@ -124,11 +134,11 @@ Universal rules: check-in 4 PM, checkout 11 AM, all Schlage Encode locks, $30 ea
 
 ## LTR side — State
 
-Schema is fully built (tenants, leases, lease_tenants, lease_rent_changes, security_deposits, tenant_invoices, tenant_payments, tenant_documents, tenant_screening, tenant_portal_users, tenant_favors, rent_reminder_log, plus a separate `comms_threads`/`comms_messages` stack for tenant messaging). Zero rows live — no real LTR tenants yet.
+**Schema is in, app is essentially not built.** May 4 audit (`LTR_ROADMAP.md`) confirmed: **14 LTR-domain tables + `comms_thread_participants`** (tenants, leases, lease_tenants, lease_rent_changes, security_deposits, tenant_invoices, tenant_payments, tenant_documents, tenant_screening, tenant_portal_users, tenant_favors, rent_reminder_log, comms_threads, comms_messages, comms_thread_participants), **5 RLS-ready views** (`comms_thread_inbox`, `rent_reminders_due_today`, `tenant_payments_effective`, `tenant_visible_lease`, `tenant_visible_property`), **8 helper functions** (`current_app_user_id`, `current_tenant_id`, `current_tenant_portal_user_id`, `bump_comms_thread_on_message`, `mark_comms_thread_read`, `tenant_can_see_property`, `tenant_has_lease`, `tenant_payments_status_from_amount`), and **2 active triggers**. Every LTR table is **0 rows** — no real tenants yet, so no schema/data drift risk.
 
-`/long-term` lists LTR properties (just Kalamath today, derived from entity slug). `/long-term/leases` renders, but its `/api/leases` and `/api/tenants` endpoints don't exist — page handles 404 gracefully and shows empty.
+**Frontend:** 3 pages exist — `/long-term` (lists LTR properties; just Kalamath today), `/long-term/leases` (Tenants & Leases tabs but stub — calls 404 `/api/leases` + `/api/tenants` and renders empty), `/long-term/properties/[id]` (shared `PropertyDetail` wrapper). 9 of 10 sidebar items 404. **Zero LTR-specific API routes implemented.** Tenant portal guard exists in `AppShell` but no page files.
 
-Sidebar promises rent-roll, aged receivables, maintenance, vendors, property-tax, insurance, utilities, financials views — none built yet. Tenant portal route doesn't exist either, though `tenant_portal_users` does.
+**Phase 8 onward is sequenced in `LTR_ROADMAP.md`** — also captures the 2026 Colorado compliance constraints (PTSR acceptance HB23-1099/HB25-1236, for-cause eviction HB24-1098, security-deposit overhaul HB25-1249) that need to land in the schema/UI before any tenant data goes in.
 
 Property tax and insurance UIs are shipped but live at the cross-module roots (`/property-tax`, `/insurance`), not under `/long-term/*`.
 
@@ -152,7 +162,7 @@ Two flavors coexist and need eventual reconciliation:
 
 ---
 
-## Construction module — State (Phase 5 just shipped)
+## Construction module — State (Phases 1–6 shipped)
 
 Lives at `/construction` and `/construction/[id]`.
 
@@ -213,6 +223,12 @@ CHECK constraints + `updated_at` columns on `subcontracts`, `subcontract_line_it
 - Did **not** add a contact-side picker to Subcontract / Inspection / CO modals. Those modals only deal with `company_id`; adding `contact_id` UI is future polish.
 - Did **not** wire the `/short-term/properties` or `/long-term/properties` index routes — sidebar still links to those (and to the unbuilt routes listed in "Open questions"). Property cards on `/short-term` and `/long-term` already work as a workaround.
 
+---
+
+## Inspections & parallel cleaning — State (Phase 7 just shipped May 4)
+
+STR-side workflows that live next to (not inside) the construction module. Heads up: `unit_inspections` is distinct from construction's `inspections` — different table, different scope.
+
 ### Phase 7a — what shipped (post-checkout inspections)
 
 - **`unit_inspections`** — Sam logs damage findings post-checkout, stamped with `unit_id`, `property_id`, `reservation_id` (best-effort lookup of latest non-cancelled departure ≤ today), `schedule_unit_id` (links back to the cleaning task), `inspected_by`, `started_at`/`completed_at`, status (`in_progress|submitted|reviewed|closed`), `damage_summary`, `review_notes`, `reviewed_by`/`reviewed_at`. Distinct from construction `inspections` (project-scoped).
@@ -248,7 +264,7 @@ Supabase Postgres 17 (us-east-2). RLS **disabled** platform-wide — must be ena
 
 88 tables, 10 views. The full inventory was audited May 4 and lives in chat history; the audit found the platform is significantly broader than the May-3 doc described (Marina, CAM, Tenant Portal, full Insurance/Compliance, full LTR scaffolding all in the schema). Module-by-module summaries are in the State sections above.
 
-**Storage buckets in use:** `task-photos` (maintenance task issue + completion photos), plus paths embedded in `swppp_photos.storage_path` and `swppp_reports.storage_path`. Phase 6 will add `platform-files` (or extend `documents` storage) and `field-log`.
+**Storage buckets in use:** `task-photos` (public — maintenance task issue + completion photos, also field-log routed-to-task copies), `platform-files` (private — all `documents` rows from Phase 6 onward), `field-log` (private — raw field-log captures pre-routing), plus paths embedded in `swppp_photos.storage_path` and `swppp_reports.storage_path`.
 
 **Verified column names (don't guess these):** `properties.short_name`, `properties.full_address`, `units.unit_label`. `dream_team.display_name` UNIQUE.
 
@@ -303,12 +319,22 @@ API routes under `/api/construction/projects/[id]/*` (canonical), plus older un-
 - **May 3** — Phase 5 design decisions: `org_id` singleton lookup deferred (refactor later when 2nd org), SwpppTab inline (not detail page), `open_inspections` added to header counts shape.
 - **May 4** — CONTEXT.md rewritten after audit found ~6 weeks of drift (full LTR / Marina / CAM / Tenant Portal / Insurance / Property Tax / Maintenance / Scheduler infrastructure built without documenting). Construction tables confirmed unprefixed (`projects` not `construction_projects`; tasks unified). Phase 6 paused pending corrected build prompt that uses existing `documents` + `contacts`/`companies` tables instead of inventing parallels.
 - **May 4** — Phase 6 design decisions: extend `documents` rather than create parallel `files` (preserves 14+ upstream FKs); subcontractor required-docs live on `companies` (which already has `w9_on_file`/`coi_on_file`/`coi_expires`); `companies.type='sub'` is the slug that triggers slot auto-gen (matches existing UI convention); slot generation runs via Postgres `AFTER INSERT` triggers (bulletproof against direct Supabase Studio inserts); field-log issue routing copies photos to the existing public `task-photos` bucket so `/tasks/rewrite` vision Claude can read them via URL; photo report PDF uses text headers only this phase (no logo upload).
+- **May 4** — Phase 7 design decisions: post-checkout inspections live in their own `unit_inspections` table (not reused construction `inspections`); finding photos attach polymorphically via `documents.parent_type` rather than a parallel photos table; `pending_charges` and `pending_insurance_claims` are separate destinations from `/promote` so the workflows can diverge without schema churn. Phase 7b extends `schedule_units` additively so the existing nightly Railway scheduler keeps working unchanged; new `unit_status` is distinct from existing `status` (Sam's manual override stays).
+- **May 4** — Push discipline locked in: feature branch → PR → merge on **both** repos. `Guestos-ops` enforces via GitHub branch protection; `CasitasEnPueblo-Agent` is convention-only (private repo, Free plan, no enforcement available). `deploy.bat` on both repos has a guard that aborts on `main`.
+- **May 4** — LTR audit pass (`LTR_ROADMAP.md`) before any Phase 8 code: confirmed schema is comprehensive (14 tables + 5 views + 8 fns + 2 triggers, all empty), confirmed zero LTR-specific API routes exist, mapped Colorado 2024–2026 compliance constraints (PTSR / HB24-1098 for-cause / HB25-1249 deposits) into design constraints. Multi-owner story will reuse existing `entities` table rather than introduce a parallel `ownership_entities`.
 
 ---
 
 ## In flight
 
-Nothing actively building. Phase 7a + 7b just shipped (May 4). Manual smoke test pending — exercise on a real cleaning day.
+Nothing actively building. Phase 7a + 7b just shipped (May 4). Manual smoke test still skipped — known risk if anything Phase 7 broke is inherited by Phase 8.
+
+**Phase 8 queued — LTR core records.** Scope: stand up minimal `/api/leases` + `/api/tenants` (the endpoints `/long-term/leases` already calls), verify multi-owner story by wiring `properties.entity_id` rollups into LTR reporting, add move-in / move-out inspection capture (HB25-1249 walk-through-inspection foundation). Sequenced in `LTR_ROADMAP.md`.
+
+**Three gating questions still open before Phase 8 starts:**
+1. **Multi-owner story** — will third-party owners (not Judson's LLCs) ever live on this platform? If yes, Phase 8 needs an explicit owner-vs-property-manager separation; if no, `entities` is enough and we can keep the model simple.
+2. **Judson's dad's QuickBooks version** — Desktop vs Online dictates the export format for Phase 14 accounting; impacts data shape decisions earlier (which fields we capture vs derive).
+3. **PTSR opt-in/opt-out** — does Casitas/DuraCo accept tenant-supplied portable screening reports (HB23-1099/HB25-1236)? Default is "must accept" for residential; opting out (where legal) changes the Phase 12 screening flow significantly.
 
 ---
 
