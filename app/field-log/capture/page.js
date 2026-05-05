@@ -33,6 +33,10 @@ export default function FieldLogCapturePage() {
 
   function handlePickTarget(t) {
     setTarget(t);
+    // If the picked target was an active-cleaning row, pre-fill its unit_id.
+    if (t?.unit_id) {
+      setDefaults(d => ({ ...d, unit_id: t.unit_id }));
+    }
   }
 
   function openCamera() {

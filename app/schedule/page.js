@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
 const STATUS_CONFIG = {
@@ -10,11 +11,75 @@ const STATUS_CONFIG = {
   issue:       { label: 'Issue',       bg: 'bg-red-50',    text: 'text-red-700',   dot: 'bg-red-500'   },
 }
 
-function UnitCard({ unit, onStatusChange, onNoteAdd }) {
+function formatElapsed(seconds) {
+  if (seconds == null || seconds < 0) return '—'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function useElapsedSeconds(unit) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (unit.unit_status !== 'cleaning' && unit.unit_status !== 'paused') return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [unit.unit_status])
+  if (!unit.started_at) return null
+  // Naive client-side calc: total elapsed minus pause windows we don't have here
+  // — server is source of truth on complete. Good enough for live display.
+  const startedMs = new Date(unit.started_at).getTime()
+  let stopMs = unit.stopped_at ? new Date(unit.stopped_at).getTime() : now
+  return Math.max(0, Math.floor((stopMs - startedMs) / 1000))
+}
+
+function UnitCard({ unit, onStatusChange, onNoteAdd, onCleaningChanged }) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [startingInspection, setStartingInspection] = useState(false)
+  const [cleaningBusy, setCleaningBusy] = useState(false)
   const cfg = STATUS_CONFIG[unit.status] || STATUS_CONFIG.pending
+  const elapsed = useElapsedSeconds(unit)
+
+  async function handleStartInspection() {
+    setStartingInspection(true)
+    try {
+      const r = await fetch('/api/inspections/units', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ schedule_unit_id: unit.id })
+      })
+      const j = await r.json()
+      if (!r.ok) {
+        alert(j.error || 'Could not start inspection')
+        return
+      }
+      router.push(`/inspections/${j.inspection.id}`)
+    } finally {
+      setStartingInspection(false)
+    }
+  }
+
+  async function cleaningAction(action, body) {
+    setCleaningBusy(true)
+    try {
+      const r = await fetch(`/api/cleaning/units/${unit.id}/${action}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body || {})
+      })
+      const j = await r.json()
+      if (!r.ok) { alert(j.error || `Action ${action} failed`); return }
+      onCleaningChanged && onCleaningChanged()
+    } finally {
+      setCleaningBusy(false)
+    }
+  }
 
   async function handleStatus(newStatus) {
     setSaving(true)
@@ -87,7 +152,74 @@ function UnitCard({ unit, onStatusChange, onNoteAdd }) {
           </div>
 
           <div>
-            <p className="text-xs text-gray-400 mb-2 font-medium">Update status</p>
+            <p className="text-xs text-gray-400 mb-2 font-medium">Cleaning</p>
+            {(unit.unit_status === 'cleaning' || unit.unit_status === 'paused') && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mb-2 flex items-center justify-between">
+                <span className="text-xs text-blue-700">
+                  {unit.unit_status === 'cleaning' ? '🟢 In progress' : '⏸ Paused'}
+                  {elapsed != null && ` · ${formatElapsed(elapsed)}`}
+                </span>
+                {unit.cleaner?.full_name && (
+                  <span className="text-xs text-blue-600">{unit.cleaner.full_name}</span>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-2">
+              {(unit.unit_status === 'idle' || !unit.unit_status) && (
+                <button
+                  onClick={() => cleaningAction('start')}
+                  disabled={cleaningBusy}
+                  className="col-span-3 py-2 px-3 rounded-xl text-xs font-semibold bg-green-600 text-white disabled:opacity-50"
+                >
+                  ▶ Start cleaning
+                </button>
+              )}
+              {unit.unit_status === 'cleaning' && (
+                <>
+                  <button
+                    onClick={() => cleaningAction('pause')}
+                    disabled={cleaningBusy}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-amber-500 text-white disabled:opacity-50"
+                  >
+                    ⏸ Pause
+                  </button>
+                  <button
+                    onClick={() => cleaningAction('complete')}
+                    disabled={cleaningBusy}
+                    className="col-span-2 py-2 px-3 rounded-xl text-xs font-semibold bg-green-700 text-white disabled:opacity-50"
+                  >
+                    ✓ Complete
+                  </button>
+                </>
+              )}
+              {unit.unit_status === 'paused' && (
+                <>
+                  <button
+                    onClick={() => cleaningAction('resume')}
+                    disabled={cleaningBusy}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold bg-blue-600 text-white disabled:opacity-50"
+                  >
+                    ▶ Resume
+                  </button>
+                  <button
+                    onClick={() => cleaningAction('complete')}
+                    disabled={cleaningBusy}
+                    className="col-span-2 py-2 px-3 rounded-xl text-xs font-semibold bg-green-700 text-white disabled:opacity-50"
+                  >
+                    ✓ Complete
+                  </button>
+                </>
+              )}
+              {unit.unit_status === 'complete' && (
+                <div className="col-span-3 py-2 px-3 rounded-xl text-xs font-medium bg-green-50 text-green-700 text-center">
+                  ✓ Cleaning complete
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-400 mb-2 font-medium">Manual status override</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(STATUS_CONFIG).map(([key, val]) => (
                 <button
@@ -104,6 +236,14 @@ function UnitCard({ unit, onStatusChange, onNoteAdd }) {
               ))}
             </div>
           </div>
+
+          <button
+            onClick={handleStartInspection}
+            disabled={startingInspection}
+            className="w-full py-2.5 px-3 rounded-xl text-sm font-semibold bg-blue-600 text-white disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {startingInspection ? 'Starting…' : '🔍 Start Post-Checkout Inspection'}
+          </button>
 
           {unit.notes && unit.notes.length > 0 && (
             <div className="space-y-1.5">
@@ -163,7 +303,7 @@ export default function SchedulePage() {
 
     const { data: unitData } = await supabase
       .from('schedule_units')
-      .select('*')
+      .select('*, cleaner:cleaner_id(id, full_name, email)')
       .eq('schedule_id', sched.id)
       .order('sort_order', { ascending: true })
 
@@ -274,7 +414,13 @@ export default function SchedulePage() {
         ) : (
           <div className="space-y-3">
             {filtered.map(unit => (
-              <UnitCard key={unit.id} unit={unit} onStatusChange={handleStatusChange} onNoteAdd={handleNoteAdd} />
+              <UnitCard
+                key={unit.id}
+                unit={unit}
+                onStatusChange={handleStatusChange}
+                onNoteAdd={handleNoteAdd}
+                onCleaningChanged={loadSchedule}
+              />
             ))}
           </div>
         )}
