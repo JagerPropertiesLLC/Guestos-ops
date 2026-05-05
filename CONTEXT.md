@@ -22,6 +22,18 @@ This is the single source of truth for every Claude session working on this plat
 
 ---
 
+## Push discipline
+
+NEVER push directly to main on either repo. Always:
+1. Create a feature branch
+2. Push the branch
+3. Open a PR
+4. Merge via `gh pr merge` or GitHub UI
+
+This applies even though `CasitasEnPueblo-Agent` has no enforced branch protection (private repo on Free plan). Treat the convention as if it were enforced.
+
+---
+
 ## What we're building
 
 A property and construction management platform with three sides:
